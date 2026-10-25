@@ -1,0 +1,66 @@
+{
+  "name": "showsite",
+  "version": "0.1.0",
+  "description": "Turn any website into a smooth promo video. Captions, device frames, vertical and square formats, one command.",
+  "keywords": [
+    "website",
+    "video",
+    "promo",
+    "demo",
+    "screen-recording",
+    "playwright",
+    "ffmpeg",
+    "cli",
+    "marketing",
+    "launch"
+  ],
+  "license": "MIT",
+  "author": "Mahmoud Aladin (https://mahmoudaladin.netlify.app)",
+  "homepage": "https://github.com/mahmoudaladin7/showsite#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mahmoudaladin7/showsite.git"
+  },
+  "bugs": "https://github.com/mahmoudaladin7/showsite/issues",
+  "type": "module",
+  "bin": {
+    "showsite": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schema.json": "./schema.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "assets",
+    "schema.json"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "showsite": "node dist/cli.js",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "commander": "^15.0.0",
+    "ffmpeg-static": "^5.3.0",
+    "playwright": "^1.64.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "tsup": "^9.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
+  }
+}

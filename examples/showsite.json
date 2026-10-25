@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/showsite/schema.json",
+  "url": "https://example.com",
+  "format": "9:16",
+  "background": "coral",
+  "theme": "dark",
+  "language": "ar",
+  "audio": "./music.mp3",
+  "fitToAudio": true,
+  "hide": [".promo-bar"],
+  "scenes": [
+    { "section": 1, "caption": "موقع واحد، لغتين", "camera": "zoom", "duration": 3.5 },
+    { "section": "#features", "caption": "Everything set up for you" },
+    { "section": "#pricing", "caption": "Free and open source", "camera": "hold", "duration": 2.5 }
+  ]
+}

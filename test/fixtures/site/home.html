@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parcelly: deliver anything</title>
+<style>
+  html { scroll-behavior: smooth; }
+  body { margin: 0; font-family: system-ui, sans-serif; color: #111; background: #fff; }
+  nav { position: sticky; top: 0; z-index: 10; display: flex; justify-content: space-between; align-items: center; padding: 18px 6vw; background: #fff; border-bottom: 1px solid #eee; }
+  nav b { font-size: 22px; }
+  nav a { margin-left: 24px; color: #333; text-decoration: none; }
+  section { padding: 110px 6vw; }
+  .hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px; align-items: center; min-height: 70vh; position: relative; overflow: hidden; }
+  .hero h1 { font-size: 64px; line-height: 1.05; margin: 0 0 20px; }
+  .hero p { font-size: 20px; color: #555; }
+  .blob { position: absolute; right: -120px; top: -120px; width: 420px; height: 420px; border-radius: 50%;
+    background: conic-gradient(#ff7a59, #ffd166, #06d6a0, #118ab2, #ff7a59); filter: blur(30px); opacity: .45; animation: spin 6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hero video { width: 100%; border-radius: 18px; position: relative; }
+  .btn { display: inline-block; padding: 14px 26px; border-radius: 999px; background: #111; color: #fff; text-decoration: none; }
+  h2 { font-size: 44px; margin: 0 0 36px; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .card { padding: 28px; border-radius: 18px; background: #f4f6fb; opacity: 0; transform: translateY(40px); transition: opacity .7s ease, transform .7s ease; }
+  .card.in { opacity: 1; transform: none; }
+  .card:nth-child(2) { transition-delay: .12s; } .card:nth-child(3) { transition-delay: .24s; }
+  .gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .gallery img { width: 100%; aspect-ratio: 4/3; border-radius: 14px; display: block; background: #eee; }
+  .marquee { overflow: hidden; background: #111; color: #fff; padding: 40px 0; }
+  .track { display: flex; gap: 60px; width: max-content; font-size: 40px; font-weight: 700; animation: slide 8s linear infinite; }
+  @keyframes slide { to { transform: translateX(-50%); } }
+  .download { background: #06d6a0; text-align: center; }
+  footer { padding: 60px 6vw; background: #0b0c10; color: #aaa; }
+  .cookie { position: fixed; left: 20px; right: 20px; bottom: 20px; padding: 18px 24px; background: #222; color: #fff; border-radius: 12px; z-index: 50; }
+  #intercom-container { position: fixed; right: 24px; bottom: 100px; width: 60px; height: 60px; border-radius: 50%; background: #3a7afe; z-index: 60; }
+  @media (max-width: 700px) {
+    .hero { grid-template-columns: 1fr; } .hero h1 { font-size: 40px; }
+    .cards, .gallery { grid-template-columns: 1fr; }
+    nav a { display: none; }
+  }
+</style>
+<script>
+  // A typical frame-busting snippet.
+  if (window.top !== window.self) { try { window.top.location = window.self.location; } catch (e) {} }
+</script>
+</head>
+<body>
+<nav><b>Parcelly</b><div><a href="#features">Features</a><a href="#gallery">Gallery</a><a href="#download">Download</a></div></nav>
+<section class="hero" id="hero">
+  <div class="blob"></div>
+  <div>
+    <h1>Deliver anything, anywhere</h1>
+    <p>Parcels, groceries and rides in one app. Track every order live.</p>
+    <a class="btn" href="#download">Get the app</a>
+  </div>
+  <video autoplay muted loop playsinline>
+    <source src="/clip.webm" type="video/webm">
+    <source src="/clip.mp4" type="video/mp4">
+  </video>
+</section>
+<section id="features">
+  <h2>Why people switch</h2>
+  <div class="cards">
+    <div class="card"><h3>Same-day</h3><p>Most orders arrive within three hours.</p></div>
+    <div class="card"><h3>Live tracking</h3><p>Watch the courier on the map.</p></div>
+    <div class="card"><h3>One app</h3><p>Rides, groceries and parcels together.</p></div>
+  </div>
+</section>
+<section id="gallery">
+  <h2>On the road</h2>
+  <div class="gallery">
+    <img loading="lazy" src="/img/1.svg" alt=""><img loading="lazy" src="/img/2.svg" alt=""><img loading="lazy" src="/img/3.svg" alt="">
+    <img loading="lazy" src="/img/4.svg" alt=""><img loading="lazy" src="/img/5.svg" alt=""><img loading="lazy" src="/img/6.svg" alt="">
+  </div>
+</section>
+<div class="marquee"><div class="track"><span>FAST</span><span>SAFE</span><span>LIVE</span><span>CHEAP</span><span>FAST</span><span>SAFE</span><span>LIVE</span><span>CHEAP</span></div></div>
+<section class="download" id="download">
+  <h2>Download Parcelly</h2>
+  <p>Available on iPhone and Android.</p>
+</section>
+<footer>© Parcelly. A test site for showsite.</footer>
+<div class="cookie">We use cookies to improve your experience. <button>Accept</button></div>
+<div id="intercom-container"></div>
+<script>
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) e.target.classList.add("in");
+  }, { threshold: 0.2 });
+  document.querySelectorAll(".card").forEach((c) => io.observe(c));
+</script>
+</body>
+</html>

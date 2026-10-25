@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  record:
+    # Records the test site end to end and keeps the video, so you can watch what a change did.
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium-headless-shell
+      - run: npm run build
+      - name: Record the test site
+        run: |
+          node test/fixtures/server.mjs 4321 &
+          sleep 1
+          node dist/cli.js localhost:4321 -o test-16x9.mp4
+          node dist/cli.js localhost:4321 -f 9:16 -o test-9x16.mp4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: videos
+          path: "*.mp4"

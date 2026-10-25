@@ -1,0 +1,9 @@
+node_modules
+dist
+*.mp4
+*.mov
+*.webm
+!test/fixtures/*.mp4
+!test/fixtures/*.webm
+.DS_Store
+.showsite-cache
