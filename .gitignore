@@ -7,3 +7,4 @@ dist
 !test/fixtures/*.webm
 .DS_Store
 .showsite-cache
+showsite-output/

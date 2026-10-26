@@ -27,6 +27,8 @@ export function probeDuration(file: string): number {
   return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
 }
 
+export interface AudioTrack { file: string; fade: boolean; delay?: number; gain?: number; speech?: boolean }
+
 export interface EncoderOptions {
   out: string;
   fps: number;
@@ -34,7 +36,7 @@ export interface EncoderOptions {
   height: number;
   duration: number;
   /** Audio tracks, mixed together. `fade` adds a fade-out at the end (for tracks that would otherwise be cut off). */
-  audio?: { file: string; fade: boolean }[];
+  audio?: AudioTrack[];
 }
 
 export interface Encoder {
@@ -60,7 +62,7 @@ export function startEncoder(opts: EncoderOptions): Encoder {
   if (audio.length) {
     const fadeStart = Math.max(0, opts.duration - 1.2).toFixed(2);
     const chains = audio.map(
-      (track, i) => `[${i + 1}:a]aresample=48000,apad${track.fade ? `,afade=t=out:st=${fadeStart}:d=1.2` : ""}[a${i}]`,
+      (track, i) => `[${i + 1}:a]aresample=48000${track.speech ? ",loudnorm=I=-18:TP=-3:LRA=7,aresample=48000" : ""},volume=${track.gain ?? 1}${track.delay ? `,adelay=${Math.round(track.delay * 1000)}:all=1` : ""},apad${track.fade ? `,afade=t=out:st=${fadeStart}:d=1.2` : ""}[a${i}]`,
     );
     const mix =
       audio.length > 1
@@ -81,6 +83,9 @@ export function startEncoder(opts: EncoderOptions): Encoder {
     proc.on("error", reject);
     proc.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg failed (${code}): ${stderr.trim()}`))));
   });
+  // A failed encoder can exit while the browser is still producing frames.
+  // Keep the original promise rejectable by finish without an unhandled rejection.
+  void exited.catch(() => {});
   // Surface write errors through `exited` instead of crashing the process.
   proc.stdin.on("error", () => {});
 

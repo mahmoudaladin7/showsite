@@ -25,3 +25,6 @@ export {
 export { planVideo, cameraAt, autoScenes, PlanError, type Plan, type PlannedScene, type ScanResult, type Section } from "./plan.js";
 export { computeLayout, type Layout } from "./layout.js";
 export { renderSoundtrack, encodeWav, beatLength, MUSIC_STYLES, type MusicStyle, type Soundtrack } from "./music.js";
+
+export { startStudio } from "./studio.js";
+export { listVoices, type Voice } from "./narration.js";

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://unpkg.com/showsite/schema.json",
+  "url": "https://monumenthouse.netlify.app/#top",
+  "format": "16:9",
+  "fps": 30,
+  "background": "ink",
+  "narration": {
+    "enabled": true,
+    "rate": 175
+  },
+  "music": "none",
+  "sfx": false,
+  "scenes": [
+    {
+      "section": 1,
+      "caption": "Homes designed to endure.",
+      "narration": "Monument House. Homes designed to endure.",
+      "camera": "zoom",
+      "duration": 3.4
+    },
+    {
+      "section": 2,
+      "caption": "We build legacies.",
+      "narration": "We do not just build houses. We build legacies."
+    },
+    {
+      "section": 3,
+      "caption": "Lake Maitland Residence",
+      "narration": "Explore the Lake Maitland Residence."
+    },
+    {
+      "section": 4,
+      "caption": "Windermere Estate",
+      "narration": "Step inside the Windermere Estate."
+    },
+    {
+      "section": 6,
+      "caption": "The difference is in the details.",
+      "narration": "The difference is in the details most people never notice."
+    },
+    {
+      "section": 7,
+      "caption": "From land to legacy.",
+      "narration": "From land to legacy. A home that stands the test of time."
+    }
+  ]
+}

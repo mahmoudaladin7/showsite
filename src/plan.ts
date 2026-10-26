@@ -28,6 +28,7 @@ export interface PlannedScene {
   key: string;
   name: string;
   caption: string;
+  narration?: string;
   /** Seconds from the start of the video. */
   start: number;
   duration: number;
@@ -50,7 +51,7 @@ export interface Plan {
 
 export interface PlanInput {
   scan: ScanResult;
-  config: Pick<ShowsiteConfig, "scenes" | "maxScenes" | "captions" | "fitToAudio">;
+  config: Pick<ShowsiteConfig, "scenes" | "maxScenes" | "captions" | "fitToAudio"> & { narration?: { enabled: boolean } };
   /** Height of the site's viewport (iframe), in site pixels. */
   viewportHeight: number;
   /** How much of that viewport is visible in the video. */
@@ -89,7 +90,7 @@ export function planVideo(input: PlanInput): Plan {
       const pan = Math.min(Math.max(target.height - visibleHeight, 0), visibleHeight * 0.6);
       toY = clampY(fromY + Math.max(pan, visibleHeight * 0.14));
     }
-    return { name: target.name, caption, camera, duration, fromY, toY };
+    return { name: target.name, caption, narration: scene.narration ?? scene.caption ?? target.caption, camera, duration, fromY, toY };
   });
 
   // Stretch or shrink to the audio.
@@ -99,7 +100,7 @@ export function planVideo(input: PlanInput): Plan {
     for (const d of drafts) d.duration = Math.max(1.2, d.duration * factor);
   } else if (input.beat) {
     const beat = input.beat;
-    for (const d of drafts) d.duration = Math.max(2, Math.round(d.duration / beat)) * beat;
+    for (const d of drafts) d.duration = Math.max(2, (config.narration?.enabled ? Math.ceil : Math.round)(d.duration / beat)) * beat;
   }
 
   let start = 0;
@@ -116,6 +117,7 @@ export function planVideo(input: PlanInput): Plan {
       key: `${i}:${d.caption}`,
       name: d.name,
       caption: d.caption,
+      narration: d.narration,
       start,
       duration: d.duration,
       camera: d.camera,

@@ -15,9 +15,12 @@ import {
 } from "./config.js";
 import { color, log } from "./log.js";
 import { MUSIC_STYLES } from "./music.js";
-import { autoScenes, PlanError } from "./plan.js";
+import { PlanError } from "./plan.js";
 import { render, scan } from "./render.js";
 import { SiteError } from "./session.js";
+import { listVoices } from "./narration.js";
+import { projectFromScan } from "./project.js";
+import { startStudio } from "./studio.js";
 
 const require = createRequire(import.meta.url);
 const { version } = require("../package.json") as { version: string };
@@ -43,6 +46,9 @@ interface CliOptions {
   addressBar?: string;
   chrome?: string;
   quiet?: boolean;
+  narration?: boolean;
+  voice?: string;
+  speechRate?: string;
 }
 
 function withVideoOptions(cmd: Command): Command {
@@ -54,6 +60,10 @@ function withVideoOptions(cmd: Command): Command {
     .option("--lang <code>", "browser language, e.g. ar to record the Arabic version")
     .addOption(new Option("-m, --music <style>", "music composed for the video (default: upbeat)").choices([...MUSIC_STYLES]))
     .option("--no-music", "no music")
+    .option("--narration", "read each scene aloud using a free local voice")
+    .option("--no-narration", "disable generated speech from a config")
+    .option("--voice <name>", "installed voice name (see showsite voices); enables narration")
+    .option("--speech-rate <wpm>", "speaking speed, 80 to 300 words per minute (default: 175)")
     .option("--no-sfx", "no whooshes on camera moves")
     .option("-a, --audio <file>", "your own music or voiceover, instead of the composed music")
     .option("--fit-audio", "make the video exactly as long as the audio")
@@ -69,7 +79,7 @@ function withVideoOptions(cmd: Command): Command {
 }
 
 function toConfig(base: PartialConfig, opts: CliOptions): PartialConfig {
-  const merged: PartialConfig = { ...base, captions: { ...base.captions } };
+  const merged: PartialConfig = { ...base, captions: { ...base.captions }, narration: { ...base.narration } };
   if (opts.format) merged.format = opts.format as PartialConfig["format"];
   if (opts.frame) merged.frame = opts.frame as PartialConfig["frame"];
   if (opts.background) merged.background = opts.background;
@@ -77,6 +87,9 @@ function toConfig(base: PartialConfig, opts: CliOptions): PartialConfig {
   if (opts.lang) merged.language = opts.lang;
   if (opts.music === false) merged.music = "none";
   else if (opts.music) merged.music = opts.music as PartialConfig["music"];
+  if (opts.narration !== undefined) merged.narration = { ...merged.narration, enabled: opts.narration };
+  if (opts.voice) merged.narration = { ...merged.narration, enabled: true, voice: opts.voice };
+  if (opts.speechRate) merged.narration = { ...merged.narration, rate: Number(opts.speechRate) };
   if (opts.sfx === false) merged.sfx = false;
   if (opts.audio) merged.audio = path.resolve(opts.audio);
   if (opts.fitAudio) merged.fitToAudio = true;
@@ -142,33 +155,9 @@ withVideoOptions(
   log.step(`Opening ${new URL(config.url).host}`);
   const { scan: result, visibleHeight } = await scan(config);
 
-  const picked = new Set(autoScenes(result, config.maxScenes, visibleHeight).map((s) => s.section));
-  const scenes = result.sections
-    .filter((s) => picked.has(s.index))
-    .map((s, i) => ({
-      section: s.index,
-      caption: s.caption,
-      duration: i === 0 ? 3.4 : 3,
-      camera: i === 0 ? "zoom" : "scroll",
-    }));
-
-  const file = {
-    $schema: "https://unpkg.com/showsite/schema.json",
-    url: config.url,
-    format: config.format,
-    frame: config.frame,
-    background: config.background,
-    theme: config.theme,
-    ...(config.language ? { language: config.language } : {}),
-    captions: config.captions,
-    music: config.music,
-    sfx: config.sfx,
-    ...(config.audio ? { audio: path.relative(path.dirname(target), config.audio), fitToAudio: config.fitToAudio } : {}),
-    hide: config.hide,
-    ...(config.addressBar ? { addressBar: config.addressBar } : {}),
-    scenes,
-    availableSections: result.sections.map((s) => `${s.index}. ${s.name}${s.kind === "footer" ? " (footer)" : ""}`),
-  };
+  const file = projectFromScan(config, result, visibleHeight, path.dirname(target));
+  const scenes = file.scenes;
+  const picked = new Set(scenes.map(scene => scene.section));
   await writeFile(target, JSON.stringify(file, null, 2) + "\n");
 
   log.done(`Wrote ${path.relative(process.cwd(), target)} with ${scenes.length} scenes`);
@@ -180,6 +169,26 @@ withVideoOptions(
     process.stderr.write(`\n  Edit the captions, order and timing in ${CONFIG_FILE}, then run ${color.bold("npx showsite")}\n`);
   }
 });
+
+program.command("voices").description("list installed, free local narration voices").action(async () => {
+  const voices = await listVoices();
+  for (const voice of voices) process.stdout.write(`${voice.id.padEnd(32)} ${voice.language}\n`);
+});
+
+program.command("studio [url]")
+  .alias("dashboard")
+  .description("open the visual editor in your browser")
+  .option("-p, --port <port>", "localhost port", "4310")
+  .option("--no-open", "print the URL without opening a browser")
+  .action(async (url: string | undefined, opts: { port: string; open: boolean }) => {
+    const port = Number(opts.port);
+    if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new ConfigError("Choose a port from 1024 to 65535.");
+    const studio = await startStudio({ port, open: opts.open, url });
+    process.stdout.write(`\n  Showsite Studio  ${studio.url}\n  Local editor · free system voices · no account required\n  Press Ctrl+C to stop.\n\n`);
+    const stop = () => { void studio.close().then(() => process.exit(0)); };
+    process.once("SIGINT", stop);
+    process.once("SIGTERM", stop);
+  });
 
 program.parseAsync(process.argv).catch((error: unknown) => {
   if (error instanceof ConfigError || error instanceof PlanError || error instanceof SiteError) {

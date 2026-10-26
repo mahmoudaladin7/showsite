@@ -1,15 +1,19 @@
-import { unlink, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { ComposeState } from "./compositor.js";
 import { defaultOutFile, type ShowsiteConfig } from "./config.js";
-import { probeDuration, startEncoder } from "./ffmpeg.js";
+import { probeDuration, startEncoder, type AudioTrack } from "./ffmpeg.js";
 import { computeLayout, visibleSiteHeight } from "./layout.js";
 import { log } from "./log.js";
 import { beatLength, encodeWav, renderSoundtrack, type MusicStyle } from "./music.js";
 import { LOCATE_SCRIPT } from "./page-scripts.js";
 import { cameraAt, planVideo, type Plan, type ScanResult } from "./plan.js";
 import { openSite, scanPage, warmUp } from "./session.js";
+import { fitNarration, narratePlan, speechDelay } from "./narration.js";
+
+export interface RenderProgress { phase: string; percent: number }
+export interface RenderOptions { signal?: AbortSignal; onProgress?: (progress: RenderProgress) => void }
 
 export interface RenderResult {
   file: string;
@@ -21,7 +25,9 @@ export interface RenderResult {
 }
 
 /** Records the website described by `config` and writes an MP4. */
-export async function render(config: ShowsiteConfig): Promise<RenderResult> {
+export async function render(config: ShowsiteConfig, options: RenderOptions = {}): Promise<RenderResult> {
+  options.signal?.throwIfAborted();
+  const progress = (phase: string, percent: number) => options.onProgress?.({ phase, percent });
   const started = Date.now();
   const layout = computeLayout(config.format, config.frame);
   const visibleHeight = visibleSiteHeight(layout);
@@ -32,9 +38,15 @@ export async function render(config: ShowsiteConfig): Promise<RenderResult> {
 
   const host = new URL(config.url).host;
   log.step(`Opening ${host}`);
+  progress("Opening website", 2);
   const session = await openSite(config, layout);
-  let soundtrack: string | undefined;
+  let temp: string | undefined;
+  const cancel = () => { void session.close().catch(() => {}); };
+  options.signal?.addEventListener("abort", cancel, { once: true });
   try {
+    options.signal?.throwIfAborted();
+    temp = await mkdtemp(path.join(os.tmpdir(), "showsite-render-"));
+    progress("Loading images and finding scenes", 5);
     await warmUp(session.frame, layout.site.height, config.hide);
     const scan = await scanPage(session, config.url);
     log.info(`${scan.sections.length} sections found${scan.title ? ` on "${scan.title}"` : ""}`);
@@ -56,7 +68,7 @@ export async function render(config: ShowsiteConfig): Promise<RenderResult> {
       }
     }
 
-    const plan = planVideo({
+    let plan = planVideo({
       scan,
       config,
       viewportHeight: layout.site.height,
@@ -65,11 +77,20 @@ export async function render(config: ShowsiteConfig): Promise<RenderResult> {
       audioDuration,
       beat: beatLength(musicStyle),
     });
+    const audio: AudioTrack[] = [];
+    if (config.narration.enabled) {
+      log.step("Recording the voice-over");
+      progress("Generating local voice-over", 10);
+      const clips = await narratePlan(plan, config, temp, options.signal);
+      plan = fitNarration(plan, clips.map(clip => clip?.duration ?? 0), config.fps, beatLength(musicStyle));
+      clips.forEach((clip, i) => {
+        if (clip) audio.push({ file: clip.file, fade: false, speech: true, delay: plan.scenes[i]!.start + speechDelay(plan.scenes[i]!.travel) });
+      });
+    }
     log.info(`${plan.scenes.length} scenes, ${plan.total.toFixed(1)} seconds`);
 
     const frames = Math.max(1, Math.round(plan.total * config.fps));
 
-    const audio: { file: string; fade: boolean }[] = [];
     if (config.audio) audio.push({ file: config.audio, fade: true });
     if (musicStyle !== "none" || config.sfx) {
       if (musicStyle !== "none") log.step(`Composing the music (${musicStyle})`);
@@ -79,9 +100,9 @@ export async function render(config: ShowsiteConfig): Promise<RenderResult> {
         duration: frames / config.fps,
         scenes: plan.scenes.map((s) => ({ start: s.start, travel: s.travel })),
       });
-      soundtrack = path.join(os.tmpdir(), `showsite-${process.pid}-${Date.now()}.wav`);
+      const soundtrack = path.join(temp, "soundtrack.wav");
       await writeFile(soundtrack, encodeWav(track));
-      audio.push({ file: soundtrack, fade: false });
+      audio.push({ file: soundtrack, fade: false, gain: config.narration.enabled ? 0.13 : 1 });
     }
 
     const encoder = startEncoder({
@@ -93,10 +114,14 @@ export async function render(config: ShowsiteConfig): Promise<RenderResult> {
       audio,
     });
 
-    const cdp = await session.context.newCDPSession(session.page);
-    log.step(`Recording ${frames} frames`);
+    const stopEncoding = () => encoder.abort();
+    options.signal?.addEventListener("abort", stopEncoding, { once: true });
     try {
+      options.signal?.throwIfAborted();
+      const cdp = await session.context.newCDPSession(session.page);
+      log.step(`Recording ${frames} frames`);
       for (let i = 0; i < frames; i++) {
+        options.signal?.throwIfAborted();
         const t = i / config.fps;
         const cam = cameraAt(plan, t);
         // Virtual time for the site's own animations; starts 1s in so nothing begins at zero.
@@ -129,12 +154,17 @@ export async function render(config: ShowsiteConfig): Promise<RenderResult> {
         })) as { data: string };
         await encoder.write(Buffer.from(shot.data, "base64"));
         log.progress(`${(t + 1 / config.fps).toFixed(1)}s of ${plan.total.toFixed(1)}s`, i + 1, frames);
+        if (i % Math.max(1, Math.round(config.fps / 2)) === 0) progress("Rendering video", Math.round(18 + (i + 1) / frames * 77));
       }
       log.step("Encoding");
+      progress("Finishing MP4", 97);
       await encoder.finish();
+      progress("Ready", 100);
     } catch (error) {
       encoder.abort();
       throw error;
+    } finally {
+      options.signal?.removeEventListener("abort", stopEncoding);
     }
 
     return {
@@ -146,18 +176,33 @@ export async function render(config: ShowsiteConfig): Promise<RenderResult> {
       seconds: (Date.now() - started) / 1000,
     };
   } finally {
-    await session.close();
-    if (soundtrack) await unlink(soundtrack).catch(() => {});
+    options.signal?.removeEventListener("abort", cancel);
+    await session.close().catch(() => {});
+    if (temp) await rm(temp, { recursive: true, force: true }).catch(() => {});
   }
 }
 
 /** Opens the site and lists its sections, without recording. */
-export async function scan(config: ShowsiteConfig): Promise<{ scan: ScanResult; visibleHeight: number }> {
+export async function scan(config: ShowsiteConfig, thumbnails = false): Promise<{ scan: ScanResult; visibleHeight: number; thumbnails?: Record<string, string> }> {
   const layout = computeLayout(config.format, config.frame);
   const session = await openSite(config, layout);
   try {
     await warmUp(session.frame, layout.site.height, config.hide);
-    return { scan: await scanPage(session, config.url), visibleHeight: visibleSiteHeight(layout) };
+    const result = await scanPage(session, config.url);
+    const images: Record<string, string> = {};
+    if (thumbnails) {
+      for (const section of result.sections.slice(0, 20)) {
+        await session.frame.evaluate(top => {
+          const s = (window as any).__showsite;
+          s.scrollToY(top);
+          return s.tick(2000);
+        }, Math.max(0, section.top - (result.stickyTop ?? 0)));
+        await new Promise(resolve => setTimeout(resolve, 450));
+        const shot = await session.page.locator("#site").screenshot({ type: "jpeg", quality: 65, timeout: 10000 });
+        images[section.index] = `data:image/jpeg;base64,${shot.toString("base64")}`;
+      }
+    }
+    return { scan: result, visibleHeight: visibleSiteHeight(layout), ...(thumbnails ? { thumbnails: images } : {}) };
   } finally {
     await session.close();
   }

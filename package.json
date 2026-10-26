@@ -1,7 +1,7 @@
 {
   "name": "showsite",
-  "version": "0.1.0",
-  "description": "Turn any website into a smooth promo video. Captions, device frames, vertical and square formats, one command.",
+  "version": "0.2.0",
+  "description": "Turn websites into narrated promo videos. Free local voice-over, a visual editor, device frames, and Arabic captions.",
   "keywords": [
     "website",
     "video",

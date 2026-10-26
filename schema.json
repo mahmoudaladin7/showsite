@@ -153,7 +153,8 @@
           },
           "caption": {
             "type": "string",
-            "description": "Text above the site for this scene. Use \"\" for no caption. Arabic and mixed text work."
+            "description": "Text above the site for this scene. Use \"\" for no caption. Arabic and mixed text work.",
+            "maxLength": 2000
           },
           "duration": {
             "type": "number",
@@ -168,9 +169,15 @@
               "hold"
             ],
             "description": "scroll: drift down through the section. zoom: slow push-in. hold: stay still. Default: zoom for the first scene, scroll for the rest."
+          },
+          "narration": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Spoken script for this scene. Omit to read the caption. Empty text makes this scene silent."
           }
         }
-      }
+      },
+      "maxItems": 30
     },
     "availableSections": {
       "type": "array",
@@ -193,6 +200,28 @@
     "chromePath": {
       "type": "string",
       "description": "Use this Chrome or Chromium executable."
+    },
+    "narration": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Generate a local voice-over for each scene. Uses installed system voices. No API key or hosted speech service.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "voice": {
+          "type": "string",
+          "description": "An installed voice name from showsite voices. Omit to select by language."
+        },
+        "rate": {
+          "type": "integer",
+          "minimum": 80,
+          "maximum": 300,
+          "default": 175,
+          "description": "Speaking rate in words per minute (approximate on Windows)."
+        }
+      }
     }
   },
   "additionalProperties": false
