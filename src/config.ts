@@ -38,7 +38,20 @@ export interface SceneConfig {
   camera?: Camera;
 }
 
+export interface TourStop { y: number; name: string; hold?: number }
+export interface TourConfig {
+  speed: number;
+  hold: number;
+  stops: TourStop[];
+  endClick?: string;
+  endScroll?: string;
+  clickHold: number;
+}
+
 export interface ShowsiteConfig {
+  /** Highlights compose selected scenes; tour records the full viewport from top to bottom. */
+  mode: "highlights" | "tour";
+  tour: TourConfig;
   url: string;
   format: Format;
   fps: number;
@@ -76,6 +89,8 @@ export interface ShowsiteConfig {
 }
 
 export const DEFAULTS: Omit<ShowsiteConfig, "url"> = {
+  mode: "highlights",
+  tour: { speed: 300, hold: 1, stops: [], clickHold: 12 },
   format: "16:9",
   fps: 30,
   frame: "browser",
@@ -98,15 +113,16 @@ export class ConfigError extends Error {
   }
 }
 
-export type PartialConfig = Partial<Omit<ShowsiteConfig, "captions" | "narration">> & {
+export type PartialConfig = Partial<Omit<ShowsiteConfig, "captions" | "narration" | "tour">> & {
   captions?: Partial<ShowsiteConfig["captions"]>;
   narration?: Partial<ShowsiteConfig["narration"]>;
+  tour?: Partial<TourConfig>;
 };
 
 /** Fill in defaults and check every value, with error messages a person can act on. */
 export function resolveConfig(input: PartialConfig): ShowsiteConfig {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new ConfigError("The config must be an object.");
-  for (const key of ["captions", "narration"] as const) {
+  for (const key of ["captions", "narration", "tour"] as const) {
     if (input[key] !== undefined && (!input[key] || typeof input[key] !== "object" || Array.isArray(input[key]))) {
       throw new ConfigError(`"${key}" must be an object.`);
     }
@@ -121,6 +137,28 @@ export function resolveConfig(input: PartialConfig): ShowsiteConfig {
   if (input.scenes !== undefined && (!Array.isArray(input.scenes) || input.scenes.length > 30)) throw new ConfigError('"scenes" must be an array with up to 30 scenes.');
   if (!input.url) throw new ConfigError('Add the website address, e.g. "url": "https://example.com".');
   const url = normalizeUrl(input.url);
+  const mode = input.mode ?? DEFAULTS.mode;
+  if (mode !== "tour" && mode !== "highlights") throw new ConfigError('"mode" must be "tour" or "highlights".');
+  const tour = { ...DEFAULTS.tour, ...input.tour };
+  const number = (value: number, name: string, min: number, max: number) => {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) throw new ConfigError(`${name} must be between ${min} and ${max}.`);
+  };
+  number(tour.speed, 'tour.speed (pixels/second)', 30, 2000);
+  number(tour.hold, 'tour.hold (seconds)', 0, 30);
+  number(tour.clickHold, 'tour.clickHold (seconds)', 7, 60);
+  for (const key of ["endClick", "endScroll"] as const) {
+    const value = tour[key];
+    if (value !== undefined && (typeof value !== "string" || value.length > 1000 || !value.trim())) throw new ConfigError(`tour.${key} must be a non-empty CSS selector up to 1000 characters.`);
+  }
+  if (tour.endScroll && !tour.endClick) throw new ConfigError('Add tour.endClick before tour.endScroll.');
+  if (!Array.isArray(tour.stops) || tour.stops.length > 200) throw new ConfigError('tour.stops must contain up to 200 stops.');
+  tour.stops = tour.stops.map((stop, i) => {
+    if (!stop || typeof stop !== "object" || Array.isArray(stop)) throw new ConfigError(`tour.stops[${i}] must be an object.`);
+    number(stop.y, `tour.stops[${i}].y`, 0, 10000000);
+    if (typeof stop.name !== "string" || !stop.name.trim() || stop.name.length > 200) throw new ConfigError(`tour.stops[${i}].name must be text up to 200 characters.`);
+    if (stop.hold !== undefined) number(stop.hold, `tour.stops[${i}].hold`, 0, 30);
+    return { y: stop.y, name: stop.name, ...(stop.hold !== undefined ? { hold: stop.hold } : {}) };
+  });
 
   const format = input.format ?? DEFAULTS.format;
   if (!FORMATS.includes(format)) {
@@ -165,6 +203,8 @@ export function resolveConfig(input: PartialConfig): ShowsiteConfig {
   const scenes = (input.scenes ?? []).map((scene, i) => checkScene(scene, i));
 
   return {
+    mode,
+    tour,
     url,
     format,
     fps,

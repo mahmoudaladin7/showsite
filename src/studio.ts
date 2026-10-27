@@ -11,6 +11,7 @@ import { resolveConfig, ConfigError, type PartialConfig } from "./config.js";
 import { findFfmpeg } from "./ffmpeg.js";
 import { listVoices, selectVoice, synthesizeSpeech } from "./narration.js";
 import { projectFromScan } from "./project.js";
+import { previewTourStop } from "./tour.js";
 import { scan } from "./render.js";
 
 const exec = promisify(execFile);
@@ -155,6 +156,12 @@ export async function startStudio(options: { port?: number; open?: boolean; url?
           return json(res, { ...result, project: projectFromScan(config, result.scan, result.visibleHeight) });
         } finally { busy = false; }
       }
+      if (url.pathname === "/api/tour-preview") {
+        const config = studioConfig(input.config);
+        busy = true;
+        try { return json(res, await previewTourStop(config, input.y)); }
+        finally { busy = false; }
+      }
       if (url.pathname === "/api/voice-preview") {
         const config = studioConfig(input.config);
         if (typeof input.text !== "string" || !input.text.trim() || input.text.length > 2000) throw new ConfigError("Add a spoken line up to 2000 characters.");
@@ -175,7 +182,7 @@ export async function startStudio(options: { port?: number; open?: boolean; url?
       }
       if (url.pathname === "/api/render") {
         const config = studioConfig(input);
-        if (!config.scenes.length) throw new ConfigError("Scan a website or import a project with scenes first.");
+        if (config.mode !== "tour" && !config.scenes.length) throw new ConfigError("Scan a website or import a project with scenes first.");
         busy = true;
         try { await mkdir(output, { recursive: true }); } catch (error) { busy = false; throw error; }
         const id = randomUUID();

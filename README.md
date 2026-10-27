@@ -1,6 +1,6 @@
 # showsite
 
-Turn a website into a narrated promo video. A visual editor, local voice-over, and one-command exports. Free and open source.
+Record a complete website tour or create a narrated promo video. A visual editor, local voice-over, and one-command exports. Free and open source.
 
 ```bash
 npx showsite studio
@@ -12,14 +12,15 @@ npx showsite studio
 
 showsite opens the page in a headless browser, finds its sections, and films them like a camera would: a slow push-in on the hero, smooth scrolls between sections, captions taken from your headings. The result is an MP4 you can post as is.
 
+- **Full tours at your pace.** Record every scroll position through the footer, including pinned and horizontal sections. Set a maximum scroll speed, edit pause positions and hold times, and capture a button click at the end.
 - **A visual editor.** Scan a website, edit and reorder scenes, customize the design, listen to a voice sample, and export an MP4 from your browser. Runs on localhost.
 - **Free local voice-over.** Read captions or a separate script aloud. Each scene extends to fit its spoken line. No API key, account, or paid speech service.
 - **Three shapes.** 16:9 for YouTube and X, 1:1 for feeds, 9:16 for Reels, TikTok and Shorts.
 - **Device frames.** A browser window, or a phone that shows your site's real mobile layout.
 - **Captions that read well.** Pulled from your headings or written by you. Arabic, mixed Arabic and English, and right-to-left pages work properly.
-- **Smooth every time.** Frames are captured one by one on a virtual clock, so the scroll never stutters and the same settings give the same video.
-- **Clean shots.** Cookie banners and chat bubbles are hidden. Lazy images are loaded before the camera gets there. Scroll animations play on camera.
-- **Music made for your video.** showsite composes a soundtrack for every video, timed to the edit: the beat drops at the first cut, scene changes land on the beat, each camera move gets a whoosh, and it ends on a final hit. The soundtrack is synthesized by Showsite without sampled recordings. Or use your own track.
+- **Controlled timing.** Frames are captured one by one. Full tour synchronizes JavaScript timers and requestAnimationFrame with CSS motion, including GSAP and Lenis. Network content and media can still vary between runs.
+- **Clean highlight shots.** Cookie banners and chat bubbles are hidden in Highlights. Lazy images are loaded before the camera gets there. Scroll animations play on camera.
+- **Music made for your video.** Highlights can include a composed soundtrack, timed to the edit: the beat drops at the first cut, scene changes land on the beat, each camera move gets a whoosh, and it ends on a final hit. The soundtrack is synthesized by Showsite without sampled recordings. Or use your own track.
 - **Works on localhost.** Record your dev server before you deploy.
 
 <p align="center">
@@ -56,15 +57,52 @@ showsite studio https://your-site.com
 
 The dashboard opens at **http://127.0.0.1:4310**. Leave the terminal running while you use it. Press Ctrl+C to stop. Use `--port 4311` if the port is occupied, or `--no-open` to print the address without opening a browser.
 
-1. Paste a URL and click **Find scenes**, or choose **Try a demo**.
-2. Click a storyboard card to edit its caption, narration script, camera movement, and minimum duration. Use Earlier/Later to reorder, or add another detected section.
-3. Choose the format, frame, backdrop, and caption style in **Design**.
-4. In **Voice**, choose a narrator, listen to a sample, and optionally add quiet music.
-5. **Preview motion** renders a 12 fps draft. **Export video** uses your selected frame rate. Play the result and download the MP4.
+1. Choose **Full tour** for the complete page or **Highlights** for selected scenes. New Studio projects start in Full tour; older projects keep Highlights.
+2. Paste a URL and click **Scan website**, or choose **Try a demo**.
+3. For a full tour, set **Scroll speed** and **Pause at each stop** in Design. Select a pause card to edit its position and hold time, then **Refresh stop preview** to check the exact view. Stops are visited from top to bottom. Removing a pause does not skip the page between remaining stops; the top and bottom are always included.
+4. Optionally choose **Click after scrolling** from the detected buttons. The ending is recorded for the chosen duration. Advanced settings accept a unique button CSS selector and an optional scrollable panel selector. A panel connected with `aria-controls` is suggested automatically.
+5. For Highlights, edit captions, narration, camera movement and duration in Scene. Use Earlier/Later to reorder, then choose device frames, backdrops and audio.
+6. **Preview motion** renders a 12 fps draft of the full path. **Export video** uses your selected frame rate. Both show progress and support cancellation. Play the result and download the MP4.
 
-Exports are saved to `showsite-output/` in the folder where you started Studio. **Save project** writes an editable `.showsite.json` file to that folder and provides a download link; **Open project** loads it again. Your latest project is also saved in this browser. After reopening, scan the same URL to refresh thumbnails while keeping your scene edits.
+Full tour records the website viewport **silently**, in any of the three formats. Frames, captions, generated music and narration apply to Highlights. The speed setting limits peak scroll velocity in CSS pixels/second; a lower value makes the tour longer. The duration shown before export is an estimate based on the last scan. The renderer remeasures the page and adjusts the final endpoint at export.
+
+Changing format, appearance or URL can change the page layout. Rescan afterward and review the stops. Stop positions are absolute CSS pixels, so imported projects may need adjustment if the website has changed. Automatic pause positions are starting points: move them to settled views inside scroll-driven reveals.
+
+Exports are saved to `showsite-output/` in the folder where you started Studio. **Save project** writes an editable `.showsite.json` file to that folder and provides a download link; **Open project** loads it again. Your latest project is also saved in this browser. After reopening, scan the same URL to refresh thumbnails while keeping edits for the same layout.
 
 Studio is a local desktop tool, not a hosted recording service. It listens only on the loopback interface. Page scanning and rendering still need access to the target website. Custom audio files and browser executable paths are supported through the CLI.
+
+## Full tours from the CLI
+
+```bash
+showsite https://your-site.com --mode tour --speed 250 --pause 1.5
+showsite init https://your-site.com --mode tour
+showsite render showsite.json
+# Include a final interaction and scroll the panel it opens
+showsite https://your-site.com --mode tour --end-click '#begin' --end-scroll '#inquiry' --click-hold 12
+```
+
+A full-tour project stores the editable pauses separately from highlight scenes:
+
+```json
+{
+  "url": "https://your-site.com",
+  "mode": "tour",
+  "tour": {
+    "speed": 250,
+    "hold": 1.5,
+    "stops": [
+      { "y": 0, "name": "Hero", "hold": 4 },
+      { "y": 3200, "name": "Fully revealed detail", "hold": 6 }
+    ],
+    "endClick": "#begin",
+    "endScroll": "#inquiry",
+    "clickHold": 12
+  }
+}
+```
+
+Empty `tour.stops` uses automatic pauses across the whole page. `speed` accepts 30–2000, pause durations 0–30 seconds, and `clickHold` 7–60 seconds. Top and bottom hold for at least 3 seconds. Ending actions operate on the recorded page; new windows and multi-page tours are not supported. Full tours currently capture pages that scroll the main window, with an optional final scroll inside a panel. The ending selector must match one visible element.
 
 ## Narrate the captions
 
@@ -214,7 +252,7 @@ console.log(result.file, result.duration);
 ## Good to know
 
 - **MP4 videos on the page need Google Chrome or Microsoft Edge.** Playwright's own Chromium can't play H.264, so a site's background video would show up empty. showsite uses Chrome or Edge when one is installed, and tells you when a video couldn't play.
-- **Animations driven by JavaScript** (requestAnimationFrame, GSAP tickers, canvas, WebGL) run on the real clock, not the virtual one. They'll look fine, just not identical between renders. CSS animations, transitions and videos are frame-exact.
+- **Animation timing:** Full tour controls JavaScript timers and requestAnimationFrame as well as CSS animation. Highlights still runs JavaScript animation on the real clock. Embedded media, network-driven content, workers and WebGL may vary; review a draft before exporting. Neither mode records the website’s original audio.
 - **Pages behind a login, or behind bot protection** that blocks headless browsers, can't be recorded yet.
 - A 20-second 1080p video takes about 30 to 60 seconds to make on a laptop.
 

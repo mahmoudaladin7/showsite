@@ -10,6 +10,7 @@ import { beatLength, encodeWav, renderSoundtrack, type MusicStyle } from "./musi
 import { LOCATE_SCRIPT } from "./page-scripts.js";
 import { cameraAt, planVideo, type Plan, type ScanResult } from "./plan.js";
 import { openSite, scanPage, warmUp } from "./session.js";
+import { renderTour, scanTour } from "./tour.js";
 import { fitNarration, narratePlan, speechDelay } from "./narration.js";
 
 export interface RenderProgress { phase: string; percent: number }
@@ -26,6 +27,7 @@ export interface RenderResult {
 
 /** Records the website described by `config` and writes an MP4. */
 export async function render(config: ShowsiteConfig, options: RenderOptions = {}): Promise<RenderResult> {
+  if (config.mode === "tour") return renderTour(config, options);
   options.signal?.throwIfAborted();
   const progress = (phase: string, percent: number) => options.onProgress?.({ phase, percent });
   const started = Date.now();
@@ -184,6 +186,7 @@ export async function render(config: ShowsiteConfig, options: RenderOptions = {}
 
 /** Opens the site and lists its sections, without recording. */
 export async function scan(config: ShowsiteConfig, thumbnails = false): Promise<{ scan: ScanResult; visibleHeight: number; thumbnails?: Record<string, string> }> {
+  if (config.mode === "tour") return scanTour(config, thumbnails);
   const layout = computeLayout(config.format, config.frame);
   const session = await openSite(config, layout);
   try {

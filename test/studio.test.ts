@@ -33,6 +33,12 @@ describe('local Studio boundary',()=>{
     expect(await download.json()).toEqual(disk);
     expect(studioConfig(disk)).toMatchObject(config);
   });
+  it('saves full-tour pacing, stops and ending actions',async()=>{
+    const config={url:'https://example.com/',mode:'tour',tour:{speed:210,hold:2,stops:[{y:1100,name:'Reveal',hold:6}],endClick:'#begin',endScroll:'#panel',clickHold:12}};
+    const res=await fetch(studio.url+'/api/projects',{method:'POST',headers:{'content-type':'application/json','x-showsite-token':token},body:JSON.stringify(config)});
+    expect(res.status).toBe(201);const saved=await res.json() as {url:string};
+    const restored=await (await fetch(studio.url+saved.url)).json();expect(studioConfig(restored)).toMatchObject(config);
+  });
   it('does not render without scenes',async()=>{const res=await fetch(studio.url+'/api/render',{method:'POST',headers:{'content-type':'application/json','x-showsite-token':token},body:JSON.stringify({url:'example.com'})});expect(res.status).toBe(400);});
   it('serves no arbitrary local path',async()=>expect((await fetch(studio.url+'/api/video/not-a-file')).status).toBe(403));
 });

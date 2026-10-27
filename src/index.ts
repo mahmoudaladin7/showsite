@@ -28,3 +28,7 @@ export { renderSoundtrack, encodeWav, beatLength, MUSIC_STYLES, type MusicStyle,
 
 export { startStudio } from "./studio.js";
 export { listVoices, type Voice } from "./narration.js";
+
+export { renderTour, scanTour, previewTourStop, tourLayout } from "./tour.js";
+export { planTour, autoTourStops, tourY, type TourStep } from "./tour-plan.js";
+export { type TourConfig, type TourStop } from "./config.js";

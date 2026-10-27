@@ -28,6 +28,12 @@ const { version } = require("../package.json") as { version: string };
 const CONFIG_FILE = "showsite.json";
 
 interface CliOptions {
+  mode?: "tour" | "highlights";
+  speed?: string;
+  pause?: string;
+  endClick?: string;
+  endScroll?: string;
+  clickHold?: string;
   format?: string;
   frame?: string;
   background?: string;
@@ -53,6 +59,12 @@ interface CliOptions {
 
 function withVideoOptions(cmd: Command): Command {
   return cmd
+    .addOption(new Option("--mode <mode>", "full silent viewport tour or composed highlights").choices(["tour", "highlights"]))
+    .option("--speed <pixels>", "tour maximum scroll speed, 30–2000 CSS pixels/second")
+    .option("--pause <seconds>", "tour pause at each stop, 0–30 seconds")
+    .option("--end-click <selector>", "click one button after the tour")
+    .option("--end-scroll <selector>", "scroll the opened panel after clicking")
+    .option("--click-hold <seconds>", "record the ending action for 7–60 seconds")
     .addOption(new Option("-f, --format <format>", "video shape").choices([...FORMATS]))
     .addOption(new Option("--frame <frame>", "what the site sits in").choices([...FRAMES]))
     .option("-b, --background <color>", "ink, coral, mist, white, black, forest, ocean, or any CSS color")
@@ -80,6 +92,13 @@ function withVideoOptions(cmd: Command): Command {
 
 function toConfig(base: PartialConfig, opts: CliOptions): PartialConfig {
   const merged: PartialConfig = { ...base, captions: { ...base.captions }, narration: { ...base.narration } };
+  merged.tour = { ...base.tour };
+  if (opts.mode) merged.mode = opts.mode;
+  if (opts.speed !== undefined) merged.tour.speed = Number(opts.speed);
+  if (opts.pause !== undefined) merged.tour.hold = Number(opts.pause);
+  if (opts.endClick) merged.tour.endClick = opts.endClick;
+  if (opts.endScroll) merged.tour.endScroll = opts.endScroll;
+  if (opts.clickHold !== undefined) merged.tour.clickHold = Number(opts.clickHold);
   if (opts.format) merged.format = opts.format as PartialConfig["format"];
   if (opts.frame) merged.frame = opts.frame as PartialConfig["frame"];
   if (opts.background) merged.background = opts.background;
@@ -160,7 +179,7 @@ withVideoOptions(
   const picked = new Set(scenes.map(scene => scene.section));
   await writeFile(target, JSON.stringify(file, null, 2) + "\n");
 
-  log.done(`Wrote ${path.relative(process.cwd(), target)} with ${scenes.length} scenes`);
+  log.done(`Wrote ${path.relative(process.cwd(), target)} with ${config.mode === "tour" ? file.tour.stops.length + " tour stops" : scenes.length + " scenes"}`);
   if (!opts.quiet) {
     for (const s of result.sections) {
       const mark = picked.has(s.index) ? color.green("●") : color.dim("○");

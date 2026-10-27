@@ -40,6 +40,7 @@ jobs:
           sleep 1
           node dist/cli.js localhost:4321 -o test-16x9.mp4
           node dist/cli.js localhost:4321 -f 9:16 -o test-9x16.mp4
+          node dist/cli.js localhost:4321 --mode tour --speed 600 --pause 0.5 --fps 12 -o test-full-tour.mp4
           node dist/cli.js localhost:4321 --narration --lang en --max-scenes 2 --fps 12 -o test-narrated.mp4
       - uses: actions/upload-artifact@v4
         with:
